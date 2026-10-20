@@ -1,0 +1,22 @@
+{
+	"name": "traversal-2d",
+	"version": "1.0.0",
+	"description": "A 2d reproduction of the not-so-famous board game \"Traversal\"",
+	"keywords": [
+		"traversal",
+		"chess",
+		"vite"
+	],
+	"license": "MIT",
+	"author": "galaxymiller",
+	"type": "module",
+	"main": "main.ts",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"vite": "^8.3.4"
+	}
+}
