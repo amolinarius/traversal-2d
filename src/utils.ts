@@ -17,4 +17,5 @@ export default class Utils {
     static getMaxHeight(heights: number[][]) { return Math.max(...heights.map(row => Math.max(...row))); }
     static getMinHeight(heights: number[][]) { return Math.min(...heights.map(row => Math.min(...row))); }
     static getRandom(min: number, max: number) { return Math.round(min + Math.random()*(max-min)); }
+    static isInBounds(x: number, y: number) { return x >= 0 && x < 10 && y >= 0 && y < 10 }
 }

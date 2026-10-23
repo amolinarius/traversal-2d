@@ -1,32 +1,33 @@
+import { Color, PieceType } from "../types";
 import generateHeights from "./generation";
+import type { Piece } from "../types";
+import Engine from "./engine";
 import Utils from "./utils";
-
-enum PieceType { EXPLORER, VANGUARD, SENTINEL };
-enum Color { RED, BLUE };
-interface Piece {
-    type: PieceType;
-    color: Color;
-    x: number;
-    y: number;
-}
 
 export default class TraversalBoard {
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     heights: number[][];
-    pieces: Piece[];
+    engine: Engine;
+    selection?: { x: number, y: number};
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
+        canvas.addEventListener('click', e => this.onClick(e));
         this.ctx = canvas.getContext('2d')!;
-        this.heights = generateHeights();
-        this.pieces = [
-            { type: PieceType.SENTINEL, color: Color.BLUE, x: 2, y: 0 },
-            { type: PieceType.VANGUARD, color: Color.BLUE, x: 3, y: 0 },
-            { type: PieceType.EXPLORER, color: Color.BLUE, x: 4, y: 0 },
-            { type: PieceType.EXPLORER, color: Color.BLUE, x: 5, y: 0 },
-            { type: PieceType.VANGUARD, color: Color.BLUE, x: 6, y: 0 },
-            { type: PieceType.SENTINEL, color: Color.BLUE, x: 7, y: 0 }
-        ].flatMap(p => [p, { ...p, color: Color.RED, y: 9 }]);
+        // this.heights = generateHeights();
+        this.heights = [
+            [2,2,1,0,0,1,2,3,4,4],
+            [2,2,1,0,1,2,3,3,4,4],
+            [2,2,2,2,2,3,3,4,4,3],
+            [2,2,2,2,3,3,4,4,3,4],
+            [2,2,2,2,3,4,5,4,4,3],
+            [2,2,2,2,2,3,3,4,4,4],
+            [2,2,2,2,2,2,1,3,3,4],
+            [2,2,2,2,2,2,1,2,2,3],
+            [2,2,2,2,2,2,2,1,2,2],
+            [2,2,2,2,2,2,2,2,2,3]
+        ];
+        this.engine = new Engine(this.heights);
     }
     init() { //? NOTE: The borders might appear weird on small devices/windows because of antialiasing
         const maxHeight = Utils.getMaxHeight(this.heights);
@@ -71,7 +72,7 @@ export default class TraversalBoard {
         }
 
         this.ctx.shadowColor = "#0000";
-        this.pieces.forEach(p => this.drawPiece(p));
+        this.engine.state.pieces.forEach(p => this.drawPiece(p));
     }
 
     drawPiece(piece: Piece) {
@@ -98,6 +99,43 @@ export default class TraversalBoard {
                 points.reverse().forEach(p => this.ctx.lineTo(p[0], p[1]));
                 this.ctx.fill();
                 this.ctx.stroke();
+        }
+    }
+
+    getClickLocation(e: PointerEvent) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: Math.floor((e.clientX-rect.left) / rect.width * 10),
+            y: Math.floor((e.clientY-rect.top) /rect.height * 10)
+        };
+    }
+    onClick(e: PointerEvent) {
+        const { x, y } = this.getClickLocation(e);
+        const piece = this.engine.state.pieces.find(p => p.x==x && p.y==y);
+        if (!piece) {
+            this.init();
+            delete this.selection;
+            return;
+        }
+
+        if (this.selection) {
+            this.init(); //TODO Only redraw part of the board (annoying because of shadows)
+            if (this.selection.x == x && this.selection.y == y) {
+                delete this.selection;
+                return;
+            }
+        }
+        this.selection = { x, y };
+
+        const moves = this.engine.getLegalMoves(piece, true);
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+        this.ctx.font = "24px \"Consolas\"";
+        for (const move of moves) {
+            this.ctx.fillStyle = "#fff8";
+            this.ctx.fillRect(move.dest.x*100, move.dest.y*100, 100, 100);
+            this.ctx.fillStyle = "#000";
+            this.ctx.fillText(move.cost.toString(), move.dest.x*100+50, move.dest.y*100+50);
         }
     }
 }
