@@ -1,3 +1,5 @@
 node_modules/
 .vscode/
 dist/
+# See https://gist.github.com/amolinarius/4d9e4aa8ed44cac56206b6a1a4b7e18f for datamine
+datamine/
