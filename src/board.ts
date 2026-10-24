@@ -1,6 +1,6 @@
 import { Color, PieceType } from "../types";
 import generateHeights from "./generation";
-import type { Piece } from "../types";
+import type { Move, Piece } from "../types";
 import Engine from "./engine";
 import Utils from "./utils";
 
@@ -10,23 +10,12 @@ export default class TraversalBoard {
     heights: number[][];
     engine: Engine;
     selection?: { x: number, y: number};
+    highlightedMoves: Move[] = [];
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         canvas.addEventListener('click', e => this.onClick(e));
         this.ctx = canvas.getContext('2d')!;
-        // this.heights = generateHeights();
-        this.heights = [
-            [2,2,1,0,0,1,2,3,4,4],
-            [2,2,1,0,1,2,3,3,4,4],
-            [2,2,2,2,2,3,3,4,4,3],
-            [2,2,2,2,3,3,4,4,3,4],
-            [2,2,2,2,3,4,5,4,4,3],
-            [2,2,2,2,2,3,3,4,4,4],
-            [2,2,2,2,2,2,1,3,3,4],
-            [2,2,2,2,2,2,1,2,2,3],
-            [2,2,2,2,2,2,2,1,2,2],
-            [2,2,2,2,2,2,2,2,2,3]
-        ];
+        this.heights = generateHeights();
         this.engine = new Engine(this.heights);
     }
     init() { //? NOTE: The borders might appear weird on small devices/windows because of antialiasing
@@ -112,30 +101,52 @@ export default class TraversalBoard {
     onClick(e: PointerEvent) {
         const { x, y } = this.getClickLocation(e);
         const piece = this.engine.state.pieces.find(p => p.x==x && p.y==y);
-        if (!piece) {
-            this.init();
-            delete this.selection;
-            return;
-        }
 
         if (this.selection) {
-            this.init(); //TODO Only redraw part of the board (annoying because of shadows)
             if (this.selection.x == x && this.selection.y == y) {
+                const move = this.highlightedMoves.find(m => m.dest.y < 0 || m.dest.y >= 10);
+                if (piece && move) {
+                    this.engine.applyMove(piece, move);
+                }
+                this.init(); //TODO Only redraw part of the board (annoying because of shadows)
                 delete this.selection;
+                this.highlightedMoves = [];
                 return;
             }
+            const originPiece = this.engine.state.pieces.find(p => p.x == this.selection!.x && p.y == this.selection!.y);
+            const move = this.highlightedMoves.find(m => m.dest.x == x && m.dest.y == y);
+            if (move) {
+                this.engine.applyMove(originPiece!, move);
+                this.init();
+                delete this.selection;
+                this.highlightedMoves = [];
+                return;
+            }
+            this.init();
+            delete this.selection;
+            this.highlightedMoves = [];
         }
+        
+        if (!piece) return;
         this.selection = { x, y };
-
         const moves = this.engine.getLegalMoves(piece, true);
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
-        this.ctx.font = "24px \"Consolas\"";
+        this.ctx.font = "24px Consolas";
         for (const move of moves) {
-            this.ctx.fillStyle = "#fff8";
-            this.ctx.fillRect(move.dest.x*100, move.dest.y*100, 100, 100);
+            const finishMove = move.dest.y < 0 || move.dest.y >= 10;
+            const [_x, _y] = finishMove ? [piece.x, piece.y] : [move.dest.x, move.dest.y];
+            this.ctx.fillStyle = finishMove ? "#0f08" : "#fff8";
+            this.ctx.beginPath();
+            if (finishMove) this.ctx.roundRect(_x*100+10, _y*100+10, 80, 80, 20);
+            else this.ctx.roundRect(_x*100+20, _y*100+20, 60, 60, 20);
+            this.ctx.fill();
+            
             this.ctx.fillStyle = "#000";
-            this.ctx.fillText(move.cost.toString(), move.dest.x*100+50, move.dest.y*100+50);
+            if (finishMove) this.ctx.font = "14px Consolas";
+            this.ctx.fillText(finishMove ? "Finish" : move.cost.toString(), _x*100+50, _y*100+50);
+            if (finishMove) this.ctx.font = "24px Consolas";
         }
+        this.highlightedMoves = moves;
     }
 }

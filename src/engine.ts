@@ -1,10 +1,11 @@
 //Adapted from localGameEngine.ts - See https://gist.github.com/amolinarius/4d9e4aa8ed44cac56206b6a1a4b7e18f
+import { Color, PieceType, Winner, VictoryType, WinReason, DrawReason } from "../types";
 import type { GameState, Move, Piece, SearchPosition } from "../types";
-import { Color, PieceType } from "../types";
 import Utils from "./utils";
 
 const CARDINAL_DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 const EXPLORER_DIRECTIONS = [[-1, -1], [-1, 1], [1, -1], [1, 1], [-2, 0], [0, -2], [2, 0], [0, 2]] as const;
+const MOVE_LIMIT = 200;
 const STARTING_PIECES: readonly [PieceType, number][] = [
     [PieceType.SENTINEL, 2],
     [PieceType.VANGUARD, 3],
@@ -32,6 +33,7 @@ export default class Engine {
             heights, pieces,
             currentTurn: Color.RED,
             moveCount: 0,
+            finishedPieces: [],
             gameOver: false,
             scores: [0, 0],
             positionHistory: []
@@ -152,5 +154,109 @@ export default class Engine {
             }
         }
         return moves;
+    }
+    applyMove(piece: Piece, move: Move) {
+        if (!this.state.pieces.includes(piece)) {
+            console.error("Piece not found");
+            return;
+        }
+        const legalMove = this.getLegalMoves(piece).find(candidate => candidate.dest.x == move.dest.x && candidate.dest.y == move.dest.y);
+        if (!legalMove) {
+            console.error("Illegal move");
+            return;
+        }
+        const target = this.state.pieces.find(p => p.x == move.dest.x && p.y == move.dest.y && p.color != piece.color);
+        if (legalMove.isAttack && target) this.state.pieces.splice(this.state.pieces.indexOf(target), 1);
+        if (move.dest.y >= 0 && move.dest.y < 10) { piece.x = move.dest.x; piece.y = move.dest.y; }
+        else {
+            this.state.pieces.splice(this.state.pieces.indexOf(piece), 1);
+            this.state.finishedPieces.push(piece);
+            this.state.scores[piece.color] += PIECE_STATS[piece.type].strength;
+            if (this.state.firstToFinish == null) {
+                this.state.firstToFinish = piece;
+                if (piece.type == PieceType.SENTINEL) {
+                    this.state.gameOver = true;
+                    this.state.winner = piece.color as unknown as Winner;
+                }
+            }
+        }
+        if (this.state.finishedPieces.length >= 2 && !this.state.gameOver) {
+            this.state.gameOver = true;
+            this.state.winner = this.state.scores[Color.RED]>this.state.scores[Color.BLUE] ? Winner.RED : (this.state.scores[Color.RED]<this.state.scores[Color.BLUE] ? Winner.BLUE : Winner.DRAW);
+        }
+        if (!this.state.gameOver) {
+            const redPieces = this.state.pieces.filter(p => p.color == Color.RED);
+            const bluePieces = this.state.pieces.filter(p => p.color == Color.BLUE);
+            if (redPieces.length == 0 || bluePieces.length == 0) {
+                this.state.gameOver = true;
+                const redStrength = redPieces.length > 0 ? Math.max(...redPieces.map(({type}) => PIECE_STATS[type].strength)) : 0;
+                const blueStrength = bluePieces.length > 0 ? Math.max(...bluePieces.map(({type}) => PIECE_STATS[type].strength)) : 0;
+                this.state.scores = [this.state.scores[Color.RED]+redStrength, this.state.scores[Color.BLUE]+blueStrength];
+                this.state.winner = this.state.scores[Color.RED]>this.state.scores[Color.BLUE] ? Winner.RED : (this.state.scores[Color.RED]<this.state.scores[Color.BLUE] ? Winner.BLUE : Winner.DRAW);
+            }
+        }
+        if (this.state.gameOver && this.state.victoryType == undefined) this.state.victoryType = this.getVictoryType();
+        this.state.currentTurn = (this.state.currentTurn+1) % 2; //? Weird but cool
+        this.state.moveCount++;
+        if (!this.state.gameOver && this.state.moveCount >= MOVE_LIMIT) this.resolveMoveLimit();
+
+        if (!this.state.gameOver) {
+            this.state.positionHistory.push(this.serializePosition());
+            for (let repetitionLength = 2; repetitionLength <= Math.floor(this.state.positionHistory.length / 3); repetitionLength += 2) {
+                if (this.state.positionHistory.length < 3 * repetitionLength) continue;
+                const recent = this.state.positionHistory.slice(-repetitionLength);
+                const previous = this.state.positionHistory.slice(-2 * repetitionLength, -repetitionLength);
+                const oldest = this.state.positionHistory.slice(-3 * repetitionLength, -2 * repetitionLength);
+                if (recent.every((position, index) => position == previous[index] && position === oldest[index])) {
+                    this.state.gameOver = true;
+                    this.state.winner = 0;
+                    this.state.drawReason = DrawReason.THREEFOLD_REPETITION;
+                    break;
+                }
+            }
+        }
+    }
+    getVictoryType(): VictoryType|undefined {
+        if (this.state.winner != Winner.RED && this.state.winner != Winner.BLUE) return undefined;
+        const losingPlayer = this.state.winner == Winner.RED ? Color.BLUE : Color.RED;
+        if (this.state.pieces.filter(p => p.color == losingPlayer).length == 0) return VictoryType.TOTAL_DOMINATION;
+
+        const winningTypes = new Set<PieceType>();
+        let losingFinishedCount = 0;
+        for (const piece of this.state.finishedPieces) {
+            if (piece.color as unknown as Winner == this.state.winner) winningTypes.add(piece.type);
+            else losingFinishedCount++;
+        }
+        return losingFinishedCount == 0 && winningTypes.has(PieceType.VANGUARD) && winningTypes.has(PieceType.SENTINEL) ? VictoryType.PERFECT_GAME : undefined;
+    }
+    resolveMoveLimit(): void {
+        this.state.gameOver = true;
+        if (this.state.scores[Color.RED] != this.state.scores[Color.BLUE]) {
+            this.state.winner = this.state.scores[Color.RED] > this.state.scores[Color.BLUE] ? Winner.RED : Winner.BLUE;
+            this.state.winReason = WinReason.MOVE_LIMIT_SCORE;
+            return;
+        }
+        const closestPiece = (color: Color): [number, number] | null => {
+            let closest: [number, number] | null = null;
+            for (const piece of this.state.pieces) {
+                if (piece.color != color) continue;
+                const advancement = color == Color.RED ? piece.y : 9 - piece.y;
+                if (!closest || advancement < closest[0] || (advancement == closest[0] && PIECE_STATS[piece.type].strength > closest[1])) closest = [advancement, PIECE_STATS[piece.type].strength];
+            }
+            return closest;
+        };
+        const isAhead = (candidate: [number, number]|null, opponent: [number, number]|null): boolean =>
+            candidate != null && (opponent == null || candidate[0] < opponent[0] || (candidate[0] == opponent[0] && candidate[1] > opponent[1]));
+        const red = closestPiece(Color.RED);
+        const blue = closestPiece(Color.BLUE);
+        this.state.winner = isAhead(red, blue) ? Winner.RED : (isAhead(blue, red) ? Winner.BLUE : Winner.DRAW);
+        if (this.state.winner) this.state.winReason = WinReason.MOVE_LIMIT_ADVANCEMENT;
+        else this.state.drawReason = DrawReason.MOVE_LIMIT;
+    }
+    serializePosition(): string {
+        const serializePiece = (piece: Piece) => `${piece.color+1},${piece.type},${piece.y},${piece.x}`; //? Color+1 and y/x for compatibility with original game
+        const pieces = this.state.pieces.map(serializePiece).sort();
+        const finishedPieces = this.state.finishedPieces.map(serializePiece).sort().join(",");
+        return `${this.state.currentTurn}|${pieces.join(";")}|${finishedPieces}`;
     }
 }

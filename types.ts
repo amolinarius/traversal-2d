@@ -16,7 +16,8 @@ export interface GameState {
     pieces: Piece[];
     currentTurn: Color;
     moveCount: number;
-    firstToFinish?: string;
+    finishedPieces: Piece[];
+    firstToFinish?: Piece;
     gameOver: boolean;
     winner?: Winner;
     scores: [number, number];
