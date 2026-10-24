@@ -139,7 +139,7 @@ export default class TraversalBoard {
             this.ctx.fillStyle = finishMove ? "#0f08" : "#fff8";
             this.ctx.beginPath();
             if (finishMove) this.ctx.roundRect(_x*100+10, _y*100+10, 80, 80, 20);
-            else this.ctx.roundRect(_x*100+20, _y*100+20, 60, 60, 20);
+            else this.ctx.roundRect(_x*100+10+move.cost*1.5, _y*100+10+move.cost*1.5, 80-move.cost*3, 80-move.cost*3, 20);
             this.ctx.fill();
             
             this.ctx.fillStyle = "#000";
