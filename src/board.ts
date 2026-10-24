@@ -130,11 +130,13 @@ export default class TraversalBoard {
         if (!piece) return;
         this.selection = { x, y };
         const moves = this.engine.getLegalMoves(piece, true);
+        let drewFinishMove = false;
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
         this.ctx.font = "24px Consolas";
         for (const move of moves) {
             const finishMove = move.dest.y < 0 || move.dest.y >= 10;
+            if (finishMove && drewFinishMove) continue;
             const [_x, _y] = finishMove ? [piece.x, piece.y] : [move.dest.x, move.dest.y];
             this.ctx.fillStyle = finishMove ? "#0f08" : "#fff8";
             this.ctx.beginPath();
@@ -145,7 +147,10 @@ export default class TraversalBoard {
             this.ctx.fillStyle = "#000";
             if (finishMove) this.ctx.font = "14px Consolas";
             this.ctx.fillText(finishMove ? "Finish" : move.cost.toString(), _x*100+50, _y*100+50);
-            if (finishMove) this.ctx.font = "24px Consolas";
+            if (finishMove) {
+                this.ctx.font = "24px Consolas";
+                drewFinishMove = true;
+            }
         }
         this.highlightedMoves = moves;
     }
