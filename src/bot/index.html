@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .stdin, .stdout, .stdin-chevron {
+            border: 0;
+            color: #fff;
+            outline: none;
+            font-size: 16px;
+            position: fixed;
+            background-color: #000;
+            font-family: "Cascadia Code", Consolas, monospace;
+        }
+        .stdout {
+            inset: 0;
+            bottom: 32px;
+            cursor: auto;
+            padding: 10px;
+        }
+        .stdout pre[data-type=error] { color: #f33; }
+        .stdout pre[data-type=stdin] { color: #999; }
+        .stdin {
+            inset: 0;
+            border-top: 2px solid white;
+            top: calc(100vh - 32px);
+            padding-left: 24px;
+        } 
+        .stdin-chevron {
+            z-index: 100;
+            bottom: 4px;
+            left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="stdout" spellcheck="false" disabled></div>
+    <div class="stdin-chevron">&gt;</div>
+    <input type="text" class="stdin" spellcheck="false">
+
+    <script type="module">
+        const stdin = document.querySelector(".stdin");
+        const stdout = document.querySelector(".stdout");
+        function log(message, type) {
+            const elm = document.createElement("pre");
+            elm.textContent = message;
+            elm.classList.add('stdout-line', 'line');
+            elm.setAttribute('data-type', type);
+            if (type == "error") console.error(message);
+            else if (type == "stdin") console.log(message);
+            else console.info(message);
+            stdout.insertAdjacentElement('beforeend', elm);
+        }
+        async function main() {
+            const worker = new Worker("./worker.js");
+            worker.onmessage = e => { log(e.data.message, e.data.type) }
+            stdin.addEventListener('keydown', e => {
+                if (e.key != 'Enter') return;
+                log("> "+stdin.value, "stdin");
+                worker.postMessage(stdin.value);
+                stdin.value = "";
+            });
+        }
+        await main();
+    </script>
+</body>
+</html>

@@ -5,7 +5,8 @@ This repo is an attempt to represent a board of the game [_Traversal_](https://g
 ## ▶️ Build from source
 
 This project is made with Node.js using Vite.  
-To build it, you must first install [Node.js](https://nodejs.org) and [npm](https://www.npmjs.com/)
+To build it, you must first install [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/).  
+You also need the [Emscripten SDK](https://emscripten.org/).
 
 > [!NOTE]
 > If you install Node.js using `nvm`, npm will be installed automatically
@@ -13,6 +14,7 @@ To build it, you must first install [Node.js](https://nodejs.org) and [npm](http
 Then run these commands in a terminal:
 - Clone the repository: `git clone https://github.com/amolinarius/traversal-2d.git`
 - Install dependencies: `npm ci`
+- Build the bot following [this guide](/src/bot/README.md#building)
 - Start the server in development mode if you want to edit the code: `npm run dev`
 - OR Build and start the build: `npm run build` + `npm run preview`
 - Open the URL written in your terminal (most likely localhost:4173)
