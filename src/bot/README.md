@@ -7,7 +7,7 @@ This folder contains the C++ codebase for Lantern bot, used in this Traversal 2D
 Install and activate the [Emscripten SDK](https://emscripten.org/), then run:
 
 ```powershell
-em++ main.cpp -O3 -sEXPORTED_FUNCTIONS=_is_ready -sEXPORTED_RUNTIME_METHODS=ccall -sMODULARIZE -o dist/bot.js
+em++ src/*.cpp -O3 -sEXPORTED_FUNCTIONS=_is_ready -sEXPORTED_RUNTIME_METHODS=ccall -sMODULARIZE -o dist/bot.js
 ```
 
 This produces `bot.js` and `bot.wasm`, used asynchronously by `worker.js`.

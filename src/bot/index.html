@@ -59,7 +59,7 @@
             stdout.insertAdjacentElement('beforeend', elm);
         }
         async function main() {
-            const worker = new Worker("./worker.js");
+            const worker = new Worker("./dist/worker.js");
             worker.onmessage = e => { log(e.data.message, e.data.type) }
             stdin.addEventListener('keydown', e => {
                 if (e.key != 'Enter') return;
