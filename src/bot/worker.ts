@@ -1,6 +1,7 @@
 importScripts("./bot.js");
 
 type uint8_t = number; type uint16_t = number; type uint32_t = number; type uint64_t = bigint;
+type int8_t = number; type int16_t = number; type int32_t = number; type int64_t = bigint;
 type Pointer<T> = number;
 
 interface BotInstance {
@@ -21,6 +22,7 @@ declare function Module(settings?: Record<string, any>): Promise<BotInstance>;
 const CHARS = "abcdefghij".split("");
 const encodeSquare = (square: uint8_t): string => CHARS[square >> 4] + (10-(square & 0xf)).toString();
 const decodeSquare = (square: string): uint8_t => CHARS.indexOf(square.charAt(0)) << 4 | (10-parseInt(square.slice(1)));
+const uint16ToInt32 = (uint: uint16_t): int32_t => (uint << 16) >> 16; //? Propagate last bit (two's complement)
 
 const isReady = (instance: BotInstance) => self.postMessage({ type: "info", message: instance._is_ready() ? "readyok" : "null" });
 const setBoard = (instance: BotInstance, args: string[]) => {
@@ -72,7 +74,7 @@ const bestMove = (instance: BotInstance, args: string[]) => {
         foundMove: Boolean(getBits(packedMove, 40, 1)),
         from: encodeSquare(getBits(packedMove, 32, 0xff)),
         to: encodeSquare(getBits(packedMove, 24, 0xff)),
-        score: getBits(packedMove, 8, 0xffff),
+        score: uint16ToInt32(getBits(packedMove, 8, 0xffff)),
         depth: getBits(packedMove, 0, 0xff)
     }
     self.postMessage({ type: "info", message: `info depth ${bestMove.depth} score ${bestMove.score}` });

@@ -49,6 +49,6 @@ The following commands are currently available for execution.
 <- move c1b3
 -> move ok
 <- bestmove 10000
--> info depth 3 score -16
+-> info depth 3 score -18
 -> bestmove f10g6
 ```
