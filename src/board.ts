@@ -1,6 +1,6 @@
-import { Color, PieceType } from "../types";
+import { Color, PieceType, PlayerType } from "../types";
 import generateHeights from "./generation";
-import type { Move, Piece } from "../types";
+import type { Move, Piece, Players } from "../types";
 import Engine from "./engine";
 import Utils from "./utils";
 
@@ -11,12 +11,14 @@ export default class TraversalBoard {
     engine: Engine;
     selection?: { x: number, y: number};
     highlightedMoves: Move[] = [];
-    constructor(canvas: HTMLCanvasElement) {
+    players: Players;
+    constructor(canvas: HTMLCanvasElement, players?: Players) {
         this.canvas = canvas;
         canvas.addEventListener('click', e => this.onClick(e));
         this.ctx = canvas.getContext('2d')!;
         this.heights = generateHeights();
         this.engine = new Engine(this.heights);
+        this.players = players ?? { red: {type:PlayerType.PLAYER}, blue: {type:PlayerType.PLAYER} };
     }
     init() { //? NOTE: The borders might appear weird on small devices/windows because of antialiasing
         const maxHeight = Utils.getMaxHeight(this.heights);

@@ -4,6 +4,7 @@ export enum Winner { RED, BLUE, DRAW }
 export enum DrawReason { THREEFOLD_REPETITION, MOVE_LIMIT }
 export enum WinReason { MOVE_LIMIT_SCORE, MOVE_LIMIT_ADVANCEMENT }
 export enum VictoryType { TOTAL_DOMINATION, PERFECT_GAME }
+export enum PlayerType { PLAYER, BOT }
 
 export interface Piece {
     type: PieceType;
@@ -36,4 +37,8 @@ export interface SearchPosition {
     y: number;
     /** Remaining movement points */
     remaining: number;
+}
+export interface Players {
+    red: { type: PlayerType };
+    blue: { type: PlayerType };
 }

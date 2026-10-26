@@ -6,7 +6,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas class="game" width="1000" height="1000"></canvas>
+    <div class="background"></div>
+    <div class="game-container liquid-glass hidden">
+        <canvas class="game" width="1000" height="1000"></canvas>
+    </div>
+    <div class="menu main-menu liquid-glass">
+        <h1>Traversal 2D</h1>
+        <button class="play-bot">Play vs Bot</button>
+        <button class="play-person">Play in Person</button>
+    </div>
+    <div class="menu bot-menu liquid-glass hidden">
+        <h1>Play vs Bot</h1>
+        <button class="play-red">Play as Red</button>
+        <button class="play-blue">Play as Blue</button>
+        <button class="play-random">Play as Random</button>
+    </div>
     <script src="main.ts" type="module"></script>
 </body>
 </html>

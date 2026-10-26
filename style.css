@@ -1,7 +1,9 @@
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: sans-serif;
 }
 body {
     display: flex;
@@ -9,8 +11,61 @@ body {
     align-items: center;
     height: 100vh;
 }
+.background {
+    position: fixed;
+    z-index: -99;
+    inset: 0;
+    background-image: url("/background.webp");
+    background-repeat: no-repeat;
+    background-size: cover;
+    filter: grayscale(1);
+}
+.liquid-glass {
+    background-color: #ccc8;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+}
+.game-container {
+    width: 95vmin;
+    height: 95vmin;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 .game {
-    width: 90vmin;
-    height: 90vmin;
+    width: calc(100% - 80px);
+    height: calc(100% - 80px);
     border: 2px solid black;
 }
+.hidden { display: none !important }
+.menu {
+    width: 50vmin;
+    height: 50vmin;
+    min-width: 384px;
+    min-height: 256px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+.menu h1 {
+    font-size: 40px;
+    margin-bottom: 20px;
+}
+.menu button {
+    width: 344px;
+    padding: 15px 10px;
+    border: 0;
+    cursor: pointer;
+    margin: 10px 0;
+    background-color: #888;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: semibold;
+}
+.menu button:hover {
+    transform: scale(1.05);
+    background-color: #777;
+    transition: all .2s ease;
+}
+.bot-menu { min-height: 300px }
