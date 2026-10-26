@@ -4,13 +4,13 @@ type uint8_t = number; type uint16_t = number; type uint32_t = number; type uint
 type Pointer<T> = number;
 
 interface BotInstance {
-    _version: () => uint8_t;
     _is_ready: () => boolean;
+    _version: () => uint8_t;
     _set_board: (board: Pointer<uint8_t[][]>) => void;
-    _apply_move: (from: uint8_t, to: uint8_t) => boolean;
-    _get_best_move: (time_limit: uint16_t) => uint64_t;
     _get_board: () => Pointer<uint8_t[][]>;
     _get_all_legal_moves: (output_pointer: Pointer<uint64_t[]>) => uint16_t;
+    _apply_move: (from: uint8_t, to: uint8_t) => boolean;
+    _get_best_move: (time_limit: uint16_t) => uint64_t;
     _malloc: <T = any>(byte_size: uint32_t) => Pointer<T>;
     _free: (pointer: Pointer<any>) => void;
     HEAPU8: Uint8Array,

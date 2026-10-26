@@ -14,7 +14,10 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"bot:buildWorker": "tsc src/bot/worker.ts --outDir src/bot/dist",
+		"bot:buildWasm": "em++ src/bot/src/*.cpp -O3 -sEXPORTED_FUNCTIONS=_is_ready,_version,_set_board,_get_board,_get_all_legal_moves,_apply_move,_get_best_move,_malloc,_free -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPU16 -sMODULARIZE -o src/bot/dist/bot.js",
+		"bot:build": "npm run bot:buildWorker && npm run bot:buildWasm"
 	},
 	"dependencies": {
 		"vite": "^8.3.4"
