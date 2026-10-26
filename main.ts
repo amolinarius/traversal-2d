@@ -1,12 +1,13 @@
 import TraversalBoard from "./src/board";
 import { Color, PlayerType, type Players } from "./types";
 
-const canvas = document.querySelector<HTMLCanvasElement>("canvas.game")!;
+const canvasContainer = document.querySelector<HTMLCanvasElement>(".game-container")!;
+const canvas = canvasContainer.querySelector<HTMLCanvasElement>("canvas.game")!;
 const mainMenu = document.querySelector<HTMLDivElement>(".main-menu")!;
 const botMenu = document.querySelector<HTMLDivElement>(".bot-menu")!;
 
 function startGame(players: Players) {
-    canvas.classList.remove("hidden");
+    canvasContainer.classList.remove("hidden");
     mainMenu.classList.add("hidden");
     botMenu.classList.add("hidden");
     const board = new TraversalBoard(canvas, players);
