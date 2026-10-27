@@ -27,7 +27,7 @@ const uint16ToInt32 = (uint: uint16_t): int32_t => (uint << 16) >> 16; //? Propa
 const isReady = (instance: BotInstance) => self.postMessage({ type: "info", message: instance._is_ready() ? "readyok" : "null" });
 const setBoard = (instance: BotInstance, args: string[]) => {
     if (args.length < 1) throw new Error("missing board");
-    const board = args[0].split('/').map(row => row.split('').map(v => parseInt(v)));
+    const board = args[0].split('/').map(row => row.split(',').map(v => parseInt(v)));
     if (
         !board.every(row => row.every(v => Number.isInteger(v) && v >= 0 && v <= 36))
         || board.length != 10 || !board.every(row => row.length == 10)
@@ -40,7 +40,7 @@ const setBoard = (instance: BotInstance, args: string[]) => {
         instance.HEAPU8.set(flatBoard, boardPointer);
         instance._set_board(boardPointer);
         const boardView = [...new Uint8Array(instance.HEAPU8.buffer, instance._get_board(), 100)];
-        self.postMessage({ type: "info", message: boardView.map((v,i) => v.toString() + (i%10==9 ? "/" : "")).join('').slice(0,-1) });
+        self.postMessage({ type: "info", message: Array.from({ length: 10 }, (_, row) => boardView.slice(row*10, row*10+10).join(',')).join('/') });
     }
     finally { instance._free(boardPointer) }
 }
