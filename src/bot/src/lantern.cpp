@@ -19,13 +19,13 @@ void Lantern::generate_board() {
     memset(board, 0, sizeof(board));
 }
 void Lantern::set_board(const uint8_t source[BOARD_SIZE][BOARD_SIZE]) {
-    memcpy(board, *source, sizeof(board));
+    memcpy(board, source, sizeof(board));
     reset();
 }
 uint8_t Lantern::get_piece_index(uint8_t x, uint8_t y) const {
     uint8_t index = 0;
     for (uint16_t piece : position.pieces) {
-        if (Lantern::x(piece) == x && Lantern::y(piece) == y) return index;
+        if (active(piece) && Lantern::x(piece) == x && Lantern::y(piece) == y) return index;
         index++;
     }
     return 0xff;
@@ -131,32 +131,33 @@ uint8_t Lantern::get_legal_moves(const Position& target, uint8_t piece_index, Mo
     const uint16_t piece = target.pieces[piece_index];
     const uint8_t piece_type = type(piece), piece_color = color(piece), movement = piece_movement(piece_type);
     uint8_t count = 0;
-    int8_t remaining[BOARD_SIZE][BOARD_SIZE];
+    uint8_t best_cost[BOARD_SIZE][BOARD_SIZE];
     for (uint8_t row = 0; row < BOARD_SIZE; ++row)
-        for (uint8_t column = 0; column < BOARD_SIZE; ++column) remaining[row][column] = -1;
-    bool reachable[BOARD_SIZE][BOARD_SIZE] = {};
+        for (uint8_t column = 0; column < BOARD_SIZE; ++column) best_cost[row][column] = 0xff;
     bool visited[BOARD_SIZE][BOARD_SIZE] = {};
-    uint8_t queue_x[256], queue_y[256], queue_remaining[256];
+    uint8_t queue_x[256], queue_y[256], queue_cost[256];
     uint16_t head = 0, tail = 0;
-    queue_x[tail] = x(piece); queue_y[tail] = y(piece); queue_remaining[tail++] = movement;
-    remaining[y(piece)][x(piece)] = movement;
-    reachable[y(piece)][x(piece)] = true;
+    queue_x[tail] = x(piece); queue_y[tail] = y(piece); queue_cost[tail++] = 0;
+    best_cost[y(piece)][x(piece)] = 0;
     bool has_finish[BOARD_SIZE] = {};
+    if (can_finish(piece_color, y(piece))) has_finish[x(piece)] = true;
     int8_t attack_target[BOARD_SIZE][BOARD_SIZE];
     uint8_t attack_cost[BOARD_SIZE][BOARD_SIZE] = {};
     for (uint8_t row = 0; row < BOARD_SIZE; ++row)
         for (uint8_t column = 0; column < BOARD_SIZE; ++column) attack_target[row][column] = -1;
     while (head < tail) {
-        const uint8_t current_x = queue_x[head], current_y = queue_y[head], left = queue_remaining[head++];
-        if (visited[current_y][current_x] && remaining[current_y][current_x] > left) continue;
+        const uint8_t current_x = queue_x[head], current_y = queue_y[head], current_cost = queue_cost[head++];
+        if (visited[current_y][current_x] && best_cost[current_y][current_x] < current_cost) continue;
         visited[current_y][current_x] = true;
+        const uint8_t left = static_cast<uint8_t>(movement - current_cost);
         if (left >= 1 && (current_x != x(piece) || current_y != y(piece)) && can_finish(piece_color, current_y))
             has_finish[current_x] = true;
         for (const auto& direction : CARDINALS) {
             const int next_x = current_x + direction[0], next_y = current_y + direction[1];
             if (!in_bounds(next_x, next_y)) continue;
             const uint8_t cost = movement_cost(current_x, current_y, next_x, next_y);
-            if (cost > left) continue;
+            const uint8_t next_cost = static_cast<uint8_t>(current_cost + cost);
+            if (next_cost > movement) continue;
             const int8_t occupying = find_piece(target, next_x, next_y);
             if (occupying >= 0) {
                 if (color(target.pieces[occupying]) != piece_color) {
@@ -168,22 +169,20 @@ uint8_t Lantern::get_legal_moves(const Position& target, uint8_t piece_index, Mo
                 }
                 continue;
             }
-            const uint8_t next_left = static_cast<uint8_t>(left - cost);
-            if (next_left <= remaining[next_y][next_x]) continue;
-            remaining[next_y][next_x] = next_left;
-            reachable[next_y][next_x] = true;
-            if (next_left > 0 && tail < 256) {
-                queue_x[tail] = static_cast<uint8_t>(next_x); queue_y[tail] = static_cast<uint8_t>(next_y); queue_remaining[tail++] = next_left;
+            if (next_cost >= best_cost[next_y][next_x]) continue;
+            best_cost[next_y][next_x] = next_cost;
+            if (next_cost < movement && tail < 256) {
+                queue_x[tail] = static_cast<uint8_t>(next_x); queue_y[tail] = static_cast<uint8_t>(next_y); queue_cost[tail++] = next_cost;
             }
         }
     }
     for (uint8_t row = 0; row < BOARD_SIZE; ++row)
         for (uint8_t column = 0; column < BOARD_SIZE; ++column)
-            if (reachable[row][column] && (column != x(piece) || row != y(piece)) && count < MAX_MOVES)
-                output[count++] = {piece_index, column, row, static_cast<uint8_t>(movement - remaining[row][column]), false};
+            if (best_cost[row][column] != 0xff && (column != x(piece) || row != y(piece)) && count < MAX_MOVES)
+                output[count++] = {piece_index, column, row, best_cost[row][column], false};
     for (uint8_t column = 0; column < BOARD_SIZE; ++column)
         if (has_finish[column] && count < MAX_MOVES) output[count++] = {piece_index, column, static_cast<uint8_t>(piece_color == RED ? 0xff : 10), movement, false};
-    for (const auto& direction : EXPLORER_DIRECTIONS) {
+    if (piece_type == EXPLORER) for (const auto& direction : EXPLORER_DIRECTIONS) {
         const int next_x = x(piece) + direction[0], next_y = y(piece) + direction[1];
         if (std::abs(direction[0]) == 2 || std::abs(direction[1]) == 2) {
             if (!in_bounds(x(piece) + direction[0] / 2, y(piece) + direction[1] / 2) || find_piece(target, x(piece) + direction[0] / 2, y(piece) + direction[1] / 2) >= 0) continue;

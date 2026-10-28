@@ -4,6 +4,31 @@ import type { Move, Piece, Players } from "../types";
 import Engine from "./engine";
 import Utils from "./utils";
 
+interface BotMessage {
+    type: "info"|"error";
+    message: string
+}
+
+function waitForMessage(messageStack: BotMessage[], count?: 1): Promise<BotMessage>
+function waitForMessage(messageStack: BotMessage[], count: number): Promise<BotMessage[]>
+function waitForMessage(messageStack: BotMessage[] /*pointer*/, count: number = 1): Promise<BotMessage|BotMessage[]> {
+    let baseLength = messageStack.length;
+    const p = (resolve: (lastMessage: BotMessage|BotMessage[]) => void) => {
+        if (messageStack.length - baseLength >= count) resolve(count == 1 ? messageStack.slice(-1)[0] : messageStack.slice(-count));
+        else setTimeout(() => p(resolve), 100);
+    }
+    return new Promise(p);
+}
+const CHARS = "abcdefghij".split("");
+const decodeSquare = (square: string): number => CHARS.indexOf(square.charAt(0)) << 4 | (10-parseInt(square.slice(1)));
+const decodeMove = (move: string): number => {
+    const MOVE_REGEX = /^([a-j](?:\d|10))([a-j](?:\d|10))$/;
+    if (!move.match(MOVE_REGEX)) throw new Error("Invalid Move");
+    return decodeSquare(move.replace(MOVE_REGEX, "$1")) << 8 | decodeSquare(move.replace(MOVE_REGEX, "$2"));
+}
+const encodeSquare = (square: number): string => CHARS[square >> 4] + (10-(square & 0xf)).toString();
+const encodeMove = (packedMove: number): string => encodeSquare(packedMove >> 8) + encodeSquare(packedMove & 0xff);
+
 export default class TraversalBoard {
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
@@ -12,13 +37,50 @@ export default class TraversalBoard {
     selection?: { x: number, y: number};
     highlightedMoves: Move[] = [];
     players: Players;
+    botWorker: Worker;
+    workerMessages: BotMessage[] = [];
     constructor(canvas: HTMLCanvasElement, players?: Players) {
         this.canvas = canvas;
-        canvas.addEventListener('click', e => this.onClick(e));
         this.ctx = canvas.getContext('2d')!;
         this.heights = generateHeights();
         this.engine = new Engine(this.heights);
         this.players = players ?? { red: {type:PlayerType.PLAYER}, blue: {type:PlayerType.PLAYER} };
+        this.botWorker = new Worker("src/bot/dist/worker.js");
+        
+        canvas.addEventListener('click', e => this.onClick(e));
+        this.initWorker();
+    }
+    async initWorker() {
+        this.botWorker.onmessage = e => {
+            this.workerMessages.push(e.data);
+            const { data: { type, message } } = e as { data: BotMessage };
+            if (type == "error") console.error("Worker Error:", message);
+            else console.info("Worker Info:", message);
+        };
+        await waitForMessage(this.workerMessages); //? Wait for worker to identify
+        this.botWorker.postMessage("setboard "+this.heights.map(row => row.join(',')).join('/'));
+        await waitForMessage(this.workerMessages);
+        if (this.players.red.type == PlayerType.BOT) await this.workerMove();
+    }
+    async workerMove() {
+        this.botWorker.postMessage("bestmove 2000");
+        const { message: moveMessage } = (await waitForMessage(this.workerMessages, 2)).slice(-1)[0];
+        const packedMove = decodeMove(moveMessage.replace("bestmove ", ""));
+        const from = { x: packedMove >> 12, y: (packedMove >> 8) & 0xf };
+        const to = { x: (packedMove >> 4) & 0xf, y: packedMove & 0xf };
+
+        const originPiece = this.engine.state.pieces.find(p => p.x == from.x && p.y == from.y);
+        if (originPiece == undefined) throw new Error("Worker Move: No origin piece");
+        const move = this.engine.getLegalMoves(originPiece, false).find(m => m.dest.x == to.x && m.dest.y == to.y);
+        if (move == undefined) {
+            console.log(packedMove.toString(16), from, to, originPiece, this.engine.getLegalMoves(originPiece, false).map(m => m.dest));
+            this.botWorker.postMessage("legal");
+            await waitForMessage(this.workerMessages);
+            throw new Error("Worker Move: Illegal move")
+        }
+
+        this.applyMove(originPiece, move);
+        this.init();
     }
     init() { //? NOTE: The borders might appear weird on small devices/windows because of antialiasing
         const maxHeight = Utils.getMaxHeight(this.heights);
@@ -65,7 +127,6 @@ export default class TraversalBoard {
         this.ctx.shadowColor = "#0000";
         this.engine.state.pieces.forEach(p => this.drawPiece(p));
     }
-
     drawPiece(piece: Piece) {
         const { type, color, x, y } = piece;
         this.ctx.fillStyle = color == Color.RED ? "#e8505b" : "#3a8ee6";
@@ -92,7 +153,6 @@ export default class TraversalBoard {
                 this.ctx.stroke();
         }
     }
-
     getClickLocation(e: PointerEvent) {
         const rect = this.canvas.getBoundingClientRect();
         return {
@@ -104,12 +164,12 @@ export default class TraversalBoard {
         const { x, y } = this.getClickLocation(e);
         const piece = this.engine.state.pieces.find(p => p.x==x && p.y==y);
 
+        if (this.players[this.engine.state.currentTurn == Color.RED ? "red" : "blue"].type == PlayerType.BOT) return;
+
         if (this.selection) {
             if (this.selection.x == x && this.selection.y == y) {
                 const move = this.highlightedMoves.find(m => m.dest.y < 0 || m.dest.y >= 10);
-                if (piece && move) {
-                    this.engine.applyMove(piece, move);
-                }
+                if (piece && move) this.applyMove(piece, move);
                 this.init(); //TODO Only redraw part of the board (annoying because of shadows)
                 delete this.selection;
                 this.highlightedMoves = [];
@@ -118,7 +178,7 @@ export default class TraversalBoard {
             const originPiece = this.engine.state.pieces.find(p => p.x == this.selection!.x && p.y == this.selection!.y);
             const move = this.highlightedMoves.find(m => m.dest.x == x && m.dest.y == y);
             if (move) {
-                this.engine.applyMove(originPiece!, move);
+                this.applyMove(originPiece!, move);
                 this.init();
                 delete this.selection;
                 this.highlightedMoves = [];
@@ -155,5 +215,13 @@ export default class TraversalBoard {
             }
         }
         this.highlightedMoves = moves;
+    }
+    applyMove(piece: Piece, move: Move, syncWorker: boolean = true) {
+        if (piece.color != this.engine.state.currentTurn) return;
+        const packedMove = (piece.x << 12) | (piece.y << 8) | (move.dest.x << 4) | move.dest.y;
+        if (syncWorker) this.botWorker.postMessage(`move ${encodeMove(packedMove)}`)
+        this.engine.applyMove(piece, move);
+        console.log(encodeMove(packedMove));
+        if (this.players[this.engine.state.currentTurn == Color.RED ? "red" : "blue"].type == PlayerType.BOT) this.workerMove();
     }
 }
